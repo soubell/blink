@@ -61,25 +61,12 @@ class MigrationFileProviderReplicatedExtension: MigrationStep {
     // Do we need it or does it happen on its own?
     BKiCloudSyncHandler.shared()?.check(forReachabilityAndSync: nil)
 
-    self.deleteFileProviderStorage()
-  }
-
-  private func deleteFileProviderStorage() {
-    // Clean up the old File Provider path
-    let fileProviderURL = NSFileProviderManager.default.documentStorageURL
-
-    guard let contentURLs = try? FileManager.default.contentsOfDirectory(at: fileProviderURL, includingPropertiesForKeys: nil, options: []) else {
-      print("No contents found at \(fileProviderURL.path)")
-      return
-    }
-
-    for url in contentURLs {
-      do {
-        try FileManager.default.removeItem(at: url)
-        print("Removed: \(url.path)")
-      } catch {
-        print("Failed to remove \(url.path): \(error)")
-      }
-    }
+    // NOTE: The old File Provider storage used to be cleaned up here through
+    // `NSFileProviderManager.default.documentStorageURL`. That property is only
+    // valid inside the File Provider extension: calling it from the app raises
+    // an NSInternalInconsistencyException, which is not catchable from Swift and
+    // aborts the process during `didFinishLaunching`. The old extension no longer
+    // exists and the system removes its container together with it, so there is
+    // nothing to do here.
   }
 }

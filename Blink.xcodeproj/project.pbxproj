@@ -200,6 +200,8 @@
 		BDCB717D268E15A2007D7047 /* BKPubKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCB7170268E15A1007D7047 /* BKPubKey.swift */; };
 		BDCB717E268E15A2007D7047 /* BKHosts.h in Headers */ = {isa = PBXBuildFile; fileRef = BDCB7171268E15A1007D7047 /* BKHosts.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BDCB717F268E15A2007D7047 /* BlinkPaths.m in Sources */ = {isa = PBXBuildFile; fileRef = BDCB7172268E15A2007D7047 /* BlinkPaths.m */; };
+		BADC0FFE0000000000000003 /* BKExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = BADC0FFE0000000000000002 /* BKExceptionCatcher.m */; };
+		BADC0FFE0000000000000004 /* BKExceptionCatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = BADC0FFE0000000000000001 /* BKExceptionCatcher.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BDCB7180268E15A2007D7047 /* BlinkPaths.h in Headers */ = {isa = PBXBuildFile; fileRef = BDCB7173268E15A2007D7047 /* BlinkPaths.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BDCB7181268E15A2007D7047 /* BKPubKey.m in Sources */ = {isa = PBXBuildFile; fileRef = BDCB7174268E15A2007D7047 /* BKPubKey.m */; };
 		BDCB7182268E15A2007D7047 /* SEKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCB7175268E15A2007D7047 /* SEKey.swift */; };
@@ -964,6 +966,8 @@
 		BDCB7171268E15A1007D7047 /* BKHosts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BKHosts.h; sourceTree = "<group>"; };
 		BDCB7172268E15A2007D7047 /* BlinkPaths.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BlinkPaths.m; sourceTree = "<group>"; };
 		BDCB7173268E15A2007D7047 /* BlinkPaths.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BlinkPaths.h; sourceTree = "<group>"; };
+		BADC0FFE0000000000000001 /* BKExceptionCatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BKExceptionCatcher.h; sourceTree = "<group>"; };
+		BADC0FFE0000000000000002 /* BKExceptionCatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BKExceptionCatcher.m; sourceTree = "<group>"; };
 		BDCB7174268E15A2007D7047 /* BKPubKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BKPubKey.m; sourceTree = "<group>"; };
 		BDCB7175268E15A2007D7047 /* SEKey.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SEKey.swift; sourceTree = "<group>"; };
 		BDCB7176268E15A2007D7047 /* BKConfig.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BKConfig.swift; sourceTree = "<group>"; };
@@ -1918,6 +1922,8 @@
 				BDCB7170268E15A1007D7047 /* BKPubKey.swift */,
 				BDCB7173268E15A2007D7047 /* BlinkPaths.h */,
 				BDCB7172268E15A2007D7047 /* BlinkPaths.m */,
+				BADC0FFE0000000000000001 /* BKExceptionCatcher.h */,
+				BADC0FFE0000000000000002 /* BKExceptionCatcher.m */,
 				BDCB7175268E15A2007D7047 /* SEKey.swift */,
 				BDCB716D268E15A1007D7047 /* UICKeyChainStore.h */,
 				BDCB716E268E15A1007D7047 /* UICKeyChainStore.m */,
@@ -2509,6 +2515,7 @@
 				D22378FE27A7B8DA002D5C6D /* XCConfig.h in Headers */,
 				BDCB717A268E15A2007D7047 /* UICKeyChainStore.h in Headers */,
 				BDCB7180268E15A2007D7047 /* BlinkPaths.h in Headers */,
+				BADC0FFE0000000000000004 /* BKExceptionCatcher.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3384,6 +3391,7 @@
 				BDCB717D268E15A2007D7047 /* BKPubKey.swift in Sources */,
 				D238675426EA76E6003A82A1 /* OwnAlertController.swift in Sources */,
 				BDCB717F268E15A2007D7047 /* BlinkPaths.m in Sources */,
+				BADC0FFE0000000000000003 /* BKExceptionCatcher.m in Sources */,
 				BDCB717B268E15A2007D7047 /* UICKeyChainStore.m in Sources */,
 				BDD6D14527594E6500E76F1F /* BKSSHHost.swift in Sources */,
 			);
@@ -5307,7 +5315,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2009;
+				CURRENT_PROJECT_VERSION = 2010;
 				DEAD_CODE_STRIPPING = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
@@ -5360,7 +5368,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2009;
+				CURRENT_PROJECT_VERSION = 2010;
 				DEAD_CODE_STRIPPING = NO;
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = A2H2CL32AG;

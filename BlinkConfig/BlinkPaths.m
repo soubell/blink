@@ -71,6 +71,40 @@ NSString *__iCloudsDriveDocumentsPath = nil;
 
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *path = [fm containerURLForSecurityApplicationGroupIdentifier:groupID].path;
+
+    if (path == nil) {
+      // The App Group is not available. This happens on builds that are re-signed
+      // with a provisioning profile that does not include the `group.<GROUP_ID>`
+      // entitlement, for example when sideloading a self-built IPA with a personal
+      // team. The App Store build always has it.
+      //
+      // Fall back to the app's own container so the app can start and work with
+      // its local data instead of trapping on a nil path. Note that the File
+      // Provider extension and other processes will not share this location.
+      NSLog(@"[BlinkPaths] App Group %@ is not available. Falling back to the app container. "
+             "Re-sign the app with a profile that includes the App Group to restore full functionality.",
+            groupID);
+
+      NSString *basePath = [fm URLsForDirectory:NSApplicationSupportDirectory
+                                      inDomains:NSUserDomainMask].firstObject.path;
+
+      if (basePath == nil) {
+        basePath = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,
+                                                       NSUserDomainMask, YES).firstObject;
+      }
+
+      if (basePath == nil) {
+        basePath = NSHomeDirectory();
+      }
+
+      path = [basePath stringByAppendingPathComponent:@"Blink"];
+
+      BOOL isDir = NO;
+      if (![fm fileExistsAtPath:path isDirectory:&isDir] || !isDir) {
+        [fm createDirectoryAtPath:path withIntermediateDirectories:YES attributes:@{} error:nil];
+      }
+    }
+
     __groupContainerPath = path;
   }
   return __groupContainerPath;
@@ -81,7 +115,16 @@ NSString *__iCloudsDriveDocumentsPath = nil;
   if (__iCloudsDriveDocumentsPath == nil) {
     NSString *iCloudID = [XCConfig infoPlistFullCloudID];
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *path = [[fm URLForUbiquityContainerIdentifier:iCloudID] URLByAppendingPathComponent:@"Documents"].path;
+    NSURL *containerURL = [fm URLForUbiquityContainerIdentifier:iCloudID];
+
+    // The container is nil when the app has no iCloud entitlement, which is the
+    // case for builds re-signed with another team. Do not build a path from nil
+    // and do not cache the failure, so it can recover later.
+    if (containerURL == nil) {
+      return nil;
+    }
+
+    NSString *path = [containerURL URLByAppendingPathComponent:@"Documents"].path;
     [self _ensureFolderAtPath:path];
     __iCloudsDriveDocumentsPath = path;
   }
@@ -91,8 +134,14 @@ NSString *__iCloudsDriveDocumentsPath = nil;
 
 + (void)linkICloudDriveIfNeeded
 {
+  NSString *iCloudPath = [self iCloudDriveDocuments];
+  if (iCloudPath == nil) {
+    NSLog(@"[BlinkPaths] iCloud is not available. Skipping the iCloud link.");
+    return;
+  }
+
   [self _linkAtPath:[[self homePath] stringByAppendingPathComponent:@"iCloud"]
-    destinationPath:[self iCloudDriveDocuments]];
+    destinationPath:iCloudPath];
 }
 
 + (void)linkDocumentsIfNeeded {
@@ -101,6 +150,10 @@ NSString *__iCloudsDriveDocumentsPath = nil;
 }
 
 + (void)_linkAtPath:(NSString *)path destinationPath:(NSString *)destinationPath {
+  if (path.length == 0 || destinationPath.length == 0) {
+    return;
+  }
+
   NSFileManager *fm = [NSFileManager defaultManager];
   
   // Don't use fileExists as that would traverse the symlink.
@@ -154,6 +207,10 @@ NSString *__iCloudsDriveDocumentsPath = nil;
 }
 
 + (void)_ensureFolderAtPath:(NSString *)path {
+  if (path.length == 0) {
+    return;
+  }
+
   BOOL isDir = NO;
   NSFileManager *fm = [NSFileManager defaultManager];
   if ([fm fileExistsAtPath:path isDirectory:&isDir]) {

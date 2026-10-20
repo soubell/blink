@@ -1,56 +1,400 @@
 name: CI
 
-on: [push]
+# Builds an unsigned IPA of Blink (arm64, iOS device) on GitHub Actions.
+# No certificates, provisioning profiles, team IDs or secrets are required,
+# so this also works on forks and on pull requests from forks.
+#
+# The resulting Blink-<version>-<build>-unsigned.ipa is NOT signed: it cannot
+# be installed on a device as-is. Use it as the input for your own signing
+# flow (Sideloadly, AltStore, Xcode, `codesign`, ...).
+#
+# What it does:
+#   1. Checks out the repo together with its submodules (the Xcode project
+#      needs the MBProgressHUD project).
+#   2. Downloads the prebuilt binary frameworks described in
+#      xcfs/Package.swift and the vim runtime resources.
+#   3. Creates developer_setup.xcconfig (required by the project) from the
+#      checked-in template.
+#   4. Resolves the Swift packages and builds the `Blink` scheme for
+#      "generic/platform=iOS" with code signing disabled.
+#   5. Packs Payload/Blink.app into an .ipa and uploads it as an artifact.
+#
+# Run it from the Actions tab (Workflow dispatch) to pick the configuration,
+# the Xcode version and whether the unit tests should run.
+
+on:
+  push:
+    branches:
+      - raw
+      - 'arena/**'
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build configuration'
+        type: choice
+        options:
+          - Release
+          - Debug
+        default: Release
+      xcode_version:
+        description: 'Xcode version to use (must be installed on the runner image)'
+        required: false
+        default: '26.3'
+      entitlements:
+        description: 'Entitlements used to build the app'
+        type: choice
+        options:
+          - sideload
+          - default
+        default: sideload
+      run_tests:
+        description: 'Run the BlinkTests unit test suite as a separate job'
+        type: boolean
+        default: true
+
+# A newer commit on the same ref cancels the previous run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  XCODE_VERSION: ${{ github.event.inputs.xcode_version || '26.3' }}
+  CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+  ENTITLEMENTS: ${{ github.event.inputs.entitlements || 'sideload' }}
+  DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
+  SOURCE_PACKAGES: ${{ github.workspace }}/build/SourcePackages
 
 jobs:
-  build:
-
-    runs-on: macOS-latest
-    #runs-on: macos-13
+  ipa:
+    name: Build unsigned IPA (iOS device)
+    runs-on: macos-15
+    timeout-minutes: 120
 
     steps:
-    # - uses: swift-actions/setup-swift@v1
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
 
-    - name: switch xcode
-      run: sudo xcode-select -s '/Applications/Xcode_15.0.app/Contents/Developer'
+      - name: Select Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner default:"
+          xcodebuild -version
+          if [ -d "/Applications/Xcode_${XCODE_VERSION}.app" ]; then
+            sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          else
+            echo "::warning::Xcode ${XCODE_VERSION} is not installed on this runner image, using the default instead."
+          fi
+          echo "Selected:"
+          xcodebuild -version
 
-    - name: use cache
-      id: cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          xcfs/.build
-          Frameworks/ios_system/xcfs/.build
-        key: ${{ runner.os }}-${{ hashFiles('get_frameworks.sh', 'xcfs/Package.swift') }}
+      - name: Cache prebuilt frameworks (xcfs)
+        uses: actions/cache@v4
+        with:
+          path: xcfs/.build
+          key: xcfs-${{ runner.os }}-${{ hashFiles('xcfs/Package.swift', 'xcfs/Package.resolved') }}
+          restore-keys: |
+            xcfs-${{ runner.os }}-
 
-    - name: get frameworks
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: ./get_frameworks.sh
+      - name: Fetch prebuilt frameworks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./get_frameworks.sh; then
+              exit 0
+            fi
+            echo "::warning::get_frameworks.sh failed (attempt ${attempt}/3), retrying..."
+            sleep 15
+          done
+          echo "::error::Could not download the prebuilt frameworks."
+          exit 1
 
-    - name: get resources
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: ./get_resources.sh
+      - name: Cache vim runtime
+        uses: actions/cache@v4
+        with:
+          path: Resources/vim
+          key: vim-runtime-${{ runner.os }}-${{ hashFiles('get_resources.sh') }}
+          restore-keys: |
+            vim-runtime-${{ runner.os }}-
 
-    - name: copy xcconfig
-      run: cp template_setup.xcconfig developer_setup.xcconfig
+      - name: Fetch resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          # get_resources.sh unpacks the vim runtime into Resources/vim.
+          if [ -d Resources/vim/colors ]; then
+            echo "vim runtime already cached."
+          else
+            ./get_resources.sh
+          fi
 
-    - name: BlinkTests
-      run: xcodebuild -project Blink.xcodeproj -scheme BlinkTests -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPad Air (5th generation)' test | xcpretty
+      - name: Configure project
+        shell: bash
+        run: |
+          set -euo pipefail
+          # README "Build" step 1: the checked-in workspace state (SCM blueprint
+          # and workspace settings) is meant for the maintainers, not for CI.
+          rm -rf Blink.xcodeproj/project.xcworkspace/xcshareddata/
+          cp template_setup.xcconfig developer_setup.xcconfig
+          xcodebuild -project Blink.xcodeproj -list
 
-    # - name: actual build
-    #   run: set -o pipefail && xcodebuild archive -project Blink.xcodeproj -scheme Blink -sdk iphoneos -configuration Debug clean build IPHONEOS_DEPLOYMENT_TARGET='16.1' CODE_SIGN_IDENTITY='' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO | tee build.log | xcpretty
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SOURCE_PACKAGES }}
+          key: spm-${{ runner.os }}-${{ hashFiles('Blink.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
 
-    # - name: generate unsigned debug ipa
-    #   run: |
-    #     cd ~
-    #     mkdir Payload
-    #     mv ~/Library/Developer/Xcode/Archives/*/*/Products/Applications/Blink.app ~/Payload/
-    #     zip -r Blink.ipa Payload
-    # - name: upload ipa
-    #   uses: actions/upload-artifact@v2.2.0
-    #   with:
-    #     name: 'BlinkShell'
-    #     path: ~/Blink.ipa
+      - name: Resolve Swift packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project Blink.xcodeproj \
+            -scheme Blink \
+            -resolvePackageDependencies \
+            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES"
+
+      - name: Validate entitlements
+        shell: bash
+        run: |
+          set -euo pipefail
+          # An entitlements file is a plist. Catch malformed XML (for example a
+          # double hyphen inside a comment) before it reaches codesign.
+          for file in Blink/Blink.entitlements Blink/Blink-sideload.entitlements; do
+            plutil -lint "$file"
+          done
+
+      - name: Select entitlements
+        id: entitlements
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$ENTITLEMENTS" = "default" ]; then
+            echo "Using the App Store entitlements (Blink/Blink.entitlements)."
+            echo "file=" >> "$GITHUB_OUTPUT"
+          else
+            # README "Build" step 3a: build without iCloud, Push Notifications
+            # and Keychain sharing, which a personal/free team cannot sign.
+            echo "Using the sideload entitlements (Blink/Blink-sideload.entitlements)."
+            echo "file=Blink/Blink-sideload.entitlements" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build unsigned app
+        shell: bash
+        run: |
+          set -euo pipefail
+          # NOTE: keep this a plain string. Expanding an empty array under
+          # `set -u` fails on the bash 3.2 that macOS runners use.
+          ENTITLEMENTS_FILE="${{ steps.entitlements.outputs.file }}"
+          EXTRA_ARGS=""
+          if [ -n "$ENTITLEMENTS_FILE" ]; then
+            EXTRA_ARGS="CODE_SIGN_ENTITLEMENTS=$ENTITLEMENTS_FILE"
+          fi
+          xcodebuild \
+            -project Blink.xcodeproj \
+            -scheme Blink \
+            -configuration "$CONFIGURATION" \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
+            $EXTRA_ARGS \
+            build | xcbeautify
+
+      - name: Package unsigned IPA
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP="$DERIVED_DATA/Build/Products/${CONFIGURATION}-iphoneos/Blink.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::Built app not found at $APP"
+            find "$DERIVED_DATA/Build/Products" -maxdepth 2 -name "*.app" || true
+            exit 1
+          fi
+
+          SHORT_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Info.plist")
+          BUILD_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Info.plist")
+          IPA_NAME="Blink-${SHORT_VERSION}-${BUILD_VERSION}-unsigned.ipa"
+
+          ARCHS=$(lipo -archs "$APP/Blink")
+          echo "App binary architectures: ${ARCHS}"
+          case " ${ARCHS} " in
+            *" arm64 "*) ;;
+            *)
+              echo "::error::The app binary is not arm64 (${ARCHS}). A device IPA needs arm64."
+              exit 1
+              ;;
+          esac
+
+          rm -rf "$RUNNER_TEMP/Payload"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/Payload/"
+
+          (
+            cd "$RUNNER_TEMP"
+            # ditto keeps symlinks and file permissions, which a plain `zip`
+            # does not always preserve inside frameworks.
+            ditto -c -k --sequesterRsrc --keepParent Payload "$IPA_NAME"
+          )
+
+          ENTITLEMENTS_NAME=""
+          if [ "$ENTITLEMENTS" != "default" ]; then
+            ENTITLEMENTS_NAME="Blink-sideload.entitlements"
+            cp Blink/Blink-sideload.entitlements "$RUNNER_TEMP/$ENTITLEMENTS_NAME"
+          fi
+
+          IPA_SIZE=$(du -h "$RUNNER_TEMP/$IPA_NAME" | cut -f1)
+          echo "Built $IPA_NAME ($IPA_SIZE)"
+
+          # Sanity check: an IPA is a zip whose root contains Payload/<App>.app.
+          if ! unzip -l "$RUNNER_TEMP/$IPA_NAME" | grep -q "Payload/Blink.app/Blink$"; then
+            echo "::error::The IPA does not contain Payload/Blink.app/Blink"
+            unzip -l "$RUNNER_TEMP/$IPA_NAME" | head -30
+            exit 1
+          fi
+          echo "First entries of the IPA:"
+          unzip -l "$RUNNER_TEMP/$IPA_NAME" | head -15
+
+          echo "ipa=$IPA_NAME" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Unsigned IPA"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| File | \`$IPA_NAME\` |"
+            echo "| Size | $IPA_SIZE |"
+            echo "| Architectures | $ARCHS |"
+            echo "| Configuration | $CONFIGURATION |"
+            echo "| Entitlements | ${ENTITLEMENTS} |"
+            echo "| Blink version | $SHORT_VERSION ($BUILD_VERSION) |"
+            echo "| Xcode | $(xcodebuild -version | head -1) |"
+            echo ""
+            echo "This IPA is **not signed** and cannot be installed on a device as-is."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blink-unsigned-ipa
+          path: |
+            ${{ runner.temp }}/${{ steps.package.outputs.ipa }}
+            ${{ runner.temp }}/*.entitlements
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  test:
+    name: Unit tests (iOS Simulator)
+    needs: ipa
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests != 'false'
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Select Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "/Applications/Xcode_${XCODE_VERSION}.app" ]; then
+            sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          fi
+          xcodebuild -version
+
+      - name: Cache prebuilt frameworks (xcfs)
+        uses: actions/cache@v4
+        with:
+          path: xcfs/.build
+          key: xcfs-${{ runner.os }}-${{ hashFiles('xcfs/Package.swift', 'xcfs/Package.resolved') }}
+          restore-keys: |
+            xcfs-${{ runner.os }}-
+
+      - name: Fetch prebuilt frameworks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./get_frameworks.sh; then
+              exit 0
+            fi
+            echo "::warning::get_frameworks.sh failed (attempt ${attempt}/3), retrying..."
+            sleep 15
+          done
+          echo "::error::Could not download the prebuilt frameworks."
+          exit 1
+
+      - name: Cache vim runtime
+        uses: actions/cache@v4
+        with:
+          path: Resources/vim
+          key: vim-runtime-${{ runner.os }}-${{ hashFiles('get_resources.sh') }}
+          restore-keys: |
+            vim-runtime-${{ runner.os }}-
+
+      - name: Fetch resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d Resources/vim/colors ]; then
+            echo "vim runtime already cached."
+          else
+            ./get_resources.sh
+          fi
+
+      - name: Configure project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp template_setup.xcconfig developer_setup.xcconfig
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SOURCE_PACKAGES }}
+          key: spm-${{ runner.os }}-${{ hashFiles('Blink.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      - name: Select a simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available -j | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for r in d.values() for x in r if "iPhone" in x["name"]))')
+          echo "Using simulator ${UDID}"
+          echo "udid=${UDID}" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project Blink.xcodeproj \
+            -scheme BlinkTests \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | xcbeautify
