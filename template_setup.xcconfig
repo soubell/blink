@@ -9,11 +9,11 @@
 // https://help.apple.com/xcode/#/dev745c5c974
 
 // update TEAM_ID with your apple developer id
-TEAM_ID = A2H2CL32AG
+TEAM_ID = 7G8QZF3V6U
 
 // BUNDLE_ID is used as name for BUNDLE_IDENTIFIER
 BUNDLE_ID = sh.blink.blinkshell
-GROUP_ID  = sh.blink
+GROUP_ID  = robonson.sherw
 
 // CLOUD_ID is used as name for iCloud (prefix icloud. is added)
 CLOUD_ID = sh.blink.blinkshell
