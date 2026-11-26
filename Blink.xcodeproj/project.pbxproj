@@ -475,6 +475,8 @@
 		D2F330DA20A7127B0074ADD7 /* open.m in Sources */ = {isa = PBXBuildFile; fileRef = D2F330D920A7127B0074ADD7 /* open.m */; };
 		D2FBEC0B27CF505D00FD974A /* browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FBEC0727CF505D00FD974A /* browse.swift */; };
 		D2FCB4DD2339F9DB00A88108 /* UIScrollView+Paging.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FCB4DC2339F9DB00A88108 /* UIScrollView+Paging.swift */; };
+		745369C57F1F445786E748F9 /* CTor in Frameworks */ = {isa = PBXBuildFile; productRef = BC4E09934E384C7282349189 /* CTor */; };
+		49BA4B0BA4C3498AA7024767 /* TorProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D418C6331A0941B391420BB6 /* TorProxy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1225,6 +1227,7 @@
 		D2FBEC0727CF505D00FD974A /* browse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = browse.swift; sourceTree = "<group>"; };
 		D2FCB4DC2339F9DB00A88108 /* UIScrollView+Paging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIScrollView+Paging.swift"; sourceTree = "<group>"; };
 		EA0BA18B1C0CC57B00719C1A /* Blink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Blink.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D418C6331A0941B391420BB6 /* TorProxy.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TorProxy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1441,6 +1444,7 @@
 				BDF2B8DD2BC48D2800B9C7EA /* LibSSH.xcframework in Frameworks */,
 				D2334EFA25C1C28F00385378 /* network_ios.xcframework in Frameworks */,
 				D2A6398928CFA0B90066FD18 /* SwiftCBOR in Frameworks */,
+				745369C57F1F445786E748F9 /* CTor in Frameworks */,
 				BDECEA462CDE7544007BBCF6 /* BlinkFileProvider.framework in Frameworks */,
 				D24AFD58222410E700CFD3C1 /* MBProgressHUD.framework in Frameworks */,
 				BD801D202C9352E800556515 /* curl_ios.xcframework in Frameworks */,
@@ -1619,6 +1623,7 @@
 				07FAB8EA25C8E6C500E1CC2C /* Helpers.swift */,
 				07FAB8EB25C8E6C500E1CC2C /* CopyFiles.swift */,
 				07FAB8EC25C8E6C500E1CC2C /* ssh.swift */,
+				D418C6331A0941B391420BB6 /* TorProxy.swift */,
 				07FAB8ED25C8E6C500E1CC2C /* SSHPool.swift */,
 				07FAB8EE25C8E6C500E1CC2C /* SSHCommand.swift */,
 				07FAB8EF25C8E6C500E1CC2C /* SSHConfigProvider.swift */,
@@ -2879,6 +2884,7 @@
 				D222780E2A26217A00D4C708 /* Runestone */,
 				BD792A4E2A3BDAAA009EE35F /* ZIPFoundation */,
 				BDFA97312D7F49EF0020BBF2 /* ConfettiSwiftUI */,
+				BC4E09934E384C7282349189 /* CTor */,
 			);
 			productName = Blink;
 			productReference = EA0BA18B1C0CC57B00719C1A /* Blink.app */;
@@ -2998,6 +3004,7 @@
 			mainGroup = EA0BA1821C0CC57B00719C1A;
 			packageReferences = (
 				D2AD8E8027A2C79B00DED28D /* XCRemoteSwiftPackageReference "purchases-ios" */,
+				239B9C99E9EA447AB47F6812 /* XCRemoteSwiftPackageReference "Tor" */,
 				D2A6398728CFA0B90066FD18 /* XCRemoteSwiftPackageReference "SwiftCBOR" */,
 				BD7AFC3F28E8E98C004BCDA4 /* XCRemoteSwiftPackageReference "Base32Kit" */,
 				D297F00D29012FDB002A24F9 /* XCRemoteSwiftPackageReference "swiftui-cached-async-image" */,
@@ -3610,6 +3617,7 @@
 				D2F330CC20A6D98C0074ADD7 /* config.m in Sources */,
 				D241CBDB23040734003D64A5 /* KBAccessoryView.swift in Sources */,
 				07FAB8F225C8E6C500E1CC2C /* ssh.swift in Sources */,
+				49BA4B0BA4C3498AA7024767 /* TorProxy.swift in Sources */,
 				BD98AC84260BD8DC00B4E6A1 /* SSHAgentAdd.swift in Sources */,
 				BD98AC86260BD8DC00B4E6A1 /* SSHCopyID.swift in Sources */,
 				BD55D6982F7D743500EE80EA /* TerminalStyle.swift in Sources */,
@@ -5635,6 +5643,14 @@
 				version = 5.80.3;
 			};
 		};
+		239B9C99E9EA447AB47F6812 /* XCRemoteSwiftPackageReference "Tor" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/iCepa/Tor.framework";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 409.17.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -5715,6 +5731,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D2AD8E8027A2C79B00DED28D /* XCRemoteSwiftPackageReference "purchases-ios" */;
 			productName = RevenueCat;
+		};
+		BC4E09934E384C7282349189 /* CTor */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 239B9C99E9EA447AB47F6812 /* XCRemoteSwiftPackageReference "Tor" */;
+			productName = CTor;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

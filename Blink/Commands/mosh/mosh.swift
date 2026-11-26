@@ -153,6 +153,15 @@ enum MoshError: Error, LocalizedError {
     hostName = resolved.hostName
     config = try SSHClientConfigProvider.config(host: host, using: device)
 
+    // blink-tor: Mosh cannot go through Tor (its traffic is UDP and Tor
+    // only carries TCP). Reject it here, before dialing: the proxy path
+    // below expects an `ssh -W` command and would crash on the magic
+    // `tor ...` string, and bootstrapping over Tor while the Mosh
+    // session itself goes direct would leak the real address.
+    if TorCommand.isMagic(host.proxyCommand) {
+      throw MoshError.MissingArguments("Mosh cannot use a Tor ProxyCommand (Mosh uses UDP, Tor only carries TCP). Use ssh for Tor connections.")
+    }
+
     let moshClientParams = MoshClientParams(extending: command)
     let moshServerParams: MoshServerParams
     if let customKey = command.customKey {

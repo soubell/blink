@@ -158,7 +158,11 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
       }
     } else {
       // Disable CM on -W, this way we attach it to the main connection only
-      let useControlMaster = (cmd.stdioHostAndPort != nil) ? .no : (host.controlMaster ?? .no)
+      // blink-tor: also disable CM for Tor connections. The pool matches
+      // existing connections by host/user/port only (proxyCommand is not
+      // part of the key), so a Tor connection could otherwise silently
+      // reuse a direct connection, or the other way around.
+      let useControlMaster = (cmd.stdioHostAndPort != nil || TorCommand.isMagic(host.proxyCommand)) ? .no : (host.controlMaster ?? .no)
       
       connect = SSHPool.dial(
         hostName,
@@ -290,6 +294,22 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
     if cmd.hasPrefix("exec ") {
       cmd = String(cmd.dropFirst(5)).trimmingCharacters(in: .whitespaces)
     }
+
+    // blink-tor: the magic ProxyCommand `tor %h %p` is not a real
+    // command. Route the connection through the embedded Tor client
+    // instead of ios_system, and never fall back to a direct path.
+    if TorCommand.isMagic(cmd) {
+      if let tor = TorCommand.parse(cmd) {
+        TorPipe.run(host: tor.host, port: tor.port)
+      } else {
+        let message = "blink-tor: invalid Tor ProxyCommand (expected 'tor %h %p')\r\n"
+        message.withCString { _ = write(STDERR_FILENO, $0, strlen($0)) }
+        shutdown(STDIN_FILENO, SHUT_RDWR)
+        shutdown(STDOUT_FILENO, SHUT_RDWR)
+      }
+      return
+    }
+
     ios_system(cmd)
   }
 
