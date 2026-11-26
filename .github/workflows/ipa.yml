@@ -1,0 +1,83 @@
+name: IPA (unsigned)
+
+# Builds an unsigned Blink.app with the embedded Tor support
+# (blink-tor) and packages it as an IPA. Signing is left to the
+# sideloading tool (SideStore/AltStore/...), which re-signs the
+# bundle with the user's own identity.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/tor-v1
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    # Tor.framework 409.17.1 declares swift-tools-version 6.3, so a
+    # recent Xcode is required (the upstream CI pin to Xcode 15.0
+    # predates it and cannot resolve the package).
+    - name: Select latest Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+
+    - name: Use cache
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          xcfs/.build
+          Frameworks/ios_system/xcfs/.build
+        key: ${{ runner.os }}-${{ hashFiles('get_frameworks.sh', 'xcfs/Package.swift') }}
+
+    - name: Get frameworks
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: ./get_frameworks.sh
+
+    - name: Get resources
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: ./get_resources.sh
+
+    - name: Copy xcconfig
+      run: cp template_setup.xcconfig developer_setup.xcconfig
+
+    - name: Build Blink (unsigned, Debug)
+      run: |
+        set -o pipefail
+        xcodebuild build \
+          -project Blink.xcodeproj \
+          -scheme Blink \
+          -sdk iphoneos \
+          -configuration Debug \
+          -derivedDataPath build/DerivedData \
+          CODE_SIGN_IDENTITY='' \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          | tee build.log
+
+    - name: Package unsigned IPA
+      run: |
+        rm -rf Payload Blink-tor.ipa
+        mkdir Payload
+        cp -R build/DerivedData/Build/Products/Debug-iphoneos/Blink.app Payload/
+        zip -r Blink-tor.ipa Payload
+
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: Blink-tor-ipa
+        path: Blink-tor.ipa
+
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: build.log
