@@ -174,7 +174,7 @@ final class TorService {
     }
   }
 
-  private func startTor(progress: (String) -> Void,
+  private func startTor(progress: @escaping (String) -> Void,
                         timeout: TimeInterval) throws -> (host: String, port: Int) {
     let fileManager = FileManager.default
     guard let libraryDir = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first else {
@@ -495,8 +495,9 @@ enum TorPipe {
   private static func readExact(_ fd: Int32, _ bytes: inout [UInt8]) -> Bool {
     var offset = 0
     while offset < bytes.count {
+      let remaining = bytes.count - offset
       let count = bytes.withUnsafeMutableBufferPointer { pointer -> Int in
-        read(fd, pointer.baseAddress! + offset, bytes.count - offset)
+        read(fd, pointer.baseAddress! + offset, remaining)
       }
       if count < 0 {
         if errno == EINTR {
