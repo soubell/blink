@@ -41,7 +41,7 @@ on:
       xcode_version:
         description: 'Xcode version to use (must be installed on the runner image)'
         required: false
-        default: '26.3'
+        default: '26.6'
       entitlements:
         description: 'Entitlements used to build the app'
         type: choice
@@ -63,7 +63,7 @@ permissions:
   contents: read
 
 env:
-  XCODE_VERSION: ${{ github.event.inputs.xcode_version || '26.3' }}
+  XCODE_VERSION: ${{ github.event.inputs.xcode_version || '26.6' }}
   CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
   ENTITLEMENTS: ${{ github.event.inputs.entitlements || 'sideload' }}
   DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
@@ -72,7 +72,7 @@ env:
 jobs:
   ipa:
     name: Build unsigned IPA (iOS device)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 120
 
     steps:
@@ -303,7 +303,7 @@ jobs:
     name: Unit tests (iOS Simulator)
     needs: ipa
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests != 'false'
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
 
     steps:
