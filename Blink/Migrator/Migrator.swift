@@ -49,8 +49,7 @@ import BlinkConfig
     // BlinkPaths falls back to the app container when the App Group is missing
     // (sideloaded / re-signed builds), but never trap here if it cannot resolve
     // a path at all: the app would crash on launch before showing anything.
-    let containerPath = BlinkPaths.groupContainerPath()
-    guard !containerPath.isEmpty else {
+    guard let containerPath = BlinkPaths.groupContainerPath(), !containerPath.isEmpty else {
       NSLog("[Migrator] Could not resolve a container path. Skipping migrations.")
       return
     }
@@ -106,7 +105,7 @@ import BlinkConfig
       }
 
       do {
-        try data.write(to: migratorFileURL, options: [.atomic, .noFileProtection])
+        try data.write(to: migratorFileURL, options: Data.WritingOptions([.atomic, .noFileProtection]))
       } catch {
         NSLog("[Migrator] Could not persist migration version \(currentVersion): \(error).")
         break
