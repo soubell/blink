@@ -32,6 +32,7 @@
 
 import Foundation
 import UIKit
+import BlinkConfig
 
 
 @objc class Migrator : NSObject {
@@ -45,29 +46,70 @@ import UIKit
   }
 
   static func perform(steps: [MigrationStep]) {
-    let migratorFileURL = URL(fileURLWithPath: BlinkPaths.groupContainerPath()).appendingPathComponent(".migrator")
+    // BlinkPaths falls back to the app container when the App Group is missing
+    // (sideloaded / re-signed builds), but never trap here if it cannot resolve
+    // a path at all: the app would crash on launch before showing anything.
+    let containerPath = BlinkPaths.groupContainerPath()
+    guard !containerPath.isEmpty else {
+      NSLog("[Migrator] Could not resolve a container path. Skipping migrations.")
+      return
+    }
+
+    let migratorFileURL = URL(fileURLWithPath: containerPath).appendingPathComponent(".migrator")
 
     let currentVersionString = try? String(contentsOf: migratorFileURL, encoding: .utf8)
     var currentVersion = Int(currentVersionString ?? "0") ?? 0
 
     let pendingSteps = steps.filter { $0.version > currentVersion }
+      .sorted(by: { $0.version < $1.version })
     guard !pendingSteps.isEmpty else { return }
 
-    // Migration is needed but we can't read/write protected files — exit rather
-    // than continue with un-migrated state.
-    guard UIApplication.shared.isProtectedDataAvailable else { exit(0) }
+    // Migration is needed but we can't read/write protected files — skip and
+    // retry on a later launch instead of exiting: a migration must never
+    // keep Blink from launching.
+    guard UIApplication.shared.isProtectedDataAvailable else {
+      NSLog("[Migrator] Protected data is not available. Skipping migrations for now.")
+      return
+    }
 
     for step in pendingSteps {
+      // Swift's do/catch does not handle Objective-C exceptions. Apple
+      // frameworks raise them for APIs that are used outside of their
+      // supported context, and an uncaught one aborts the app. A migration
+      // must never keep Blink from launching, so both kinds of failure are
+      // contained here.
+      var stepError: Error? = nil
+      let completed = BKExceptionCatcher.performSafely {
+        do {
+          try step.execute()
+        } catch {
+          stepError = error
+        }
+      }
+
+      if let error = stepError {
+        NSLog("[Migrator] Migration step \(step.version) failed: \(error). Will retry on next launch.")
+        break
+      }
+
+      if !completed {
+        let reason = BKExceptionCatcher.lastExceptionDescription() ?? "unknown"
+        NSLog("[Migrator] Migration step \(step.version) raised an exception: \(reason). Will retry on next launch.")
+        break
+      }
+
+      currentVersion = step.version
+
+      guard let data = String(currentVersion).data(using: .utf8) else {
+        NSLog("[Migrator] Could not encode migration version \(currentVersion).")
+        break
+      }
+
       do {
-        try step.execute()
-        currentVersion = step.version
-        try String(currentVersion)
-          .data(using: .utf8)!
-          .write(to: migratorFileURL,
-                 options:  [.atomic, .noFileProtection])
+        try data.write(to: migratorFileURL, options: [.atomic, .noFileProtection])
       } catch {
-        print(error)
-        exit(0)
+        NSLog("[Migrator] Could not persist migration version \(currentVersion): \(error).")
+        break
       }
     }
   }

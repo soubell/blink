@@ -39,6 +39,7 @@ FOUNDATION_EXPORT double BlinkConfigVersionNumber;
 FOUNDATION_EXPORT const unsigned char BlinkConfigVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <BlinkConfig/PublicHeader.h>
+#import <BlinkConfig/BKExceptionCatcher.h>
 #import <BlinkConfig/BKHosts.h>
 #import <BlinkConfig/BKPubKey.h>
 #import <BlinkConfig/BlinkPaths.h>
