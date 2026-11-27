@@ -163,10 +163,36 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
       // part of the key), so a Tor connection could otherwise silently
       // reuse a direct connection, or the other way around.
       let useControlMaster = (cmd.stdioHostAndPort != nil || TorCommand.isMagic(host.proxyCommand)) ? .no : (host.controlMaster ?? .no)
-      
+
+      // blink-tor: start Tor BEFORE dialing, and give the connection
+      // a much longer timeout. libssh's connect timeout starts at
+      // dial time and the proxy callback runs inside that window;
+      // when Tor was started inside the callback, a slow bootstrap
+      // exceeded the 30 s default and libssh tore the session down
+      // before the first byte flowed (the proxy pipe saw EOF with
+      // zero bytes transferred). With Tor already running, only the
+      // SOCKS connect (seconds) sits inside the timed window.
+      // Fail closed: if Tor cannot start, do not dial at all.
+      var dialConfig = config
+      if TorCommand.isMagic(config.proxyCommand) {
+        dialConfig.connectionTimeout = 180
+        print("blink-tor: Starting Tor", to: &stderr)
+        let torStart = Date()
+        do {
+          _ = try TorService.shared.socks(progress: { message in
+            print("blink-tor: \(message)", to: &stderr)
+          })
+          let elapsed = Int(Date().timeIntervalSince(torStart).rounded())
+          print("blink-tor: Tor ready (\(elapsed)s)", to: &stderr)
+        } catch {
+          print("blink-tor: Tor failed to start: \(error.localizedDescription)", to: &stderr)
+          return -1
+        }
+      }
+
       connect = SSHPool.dial(
         hostName,
-        with: config,
+        with: dialConfig,
         withControlMaster: useControlMaster,
         withProxy: { [weak self] in
           guard let self = self

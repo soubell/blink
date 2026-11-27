@@ -107,7 +107,10 @@ public struct SSHClientConfig: CustomStringConvertible, Equatable {
   let proxyCommand: String?
   let proxyJump: String?
   
-  let connectionTimeout: Int
+  // Mutable so callers can raise it for slow transports
+  // (blink-tor: Tor bootstrap + circuit setup exceed the 30 s
+  // default, and libssh tears the session down when it fires).
+  public var connectionTimeout: Int
   
   let compression: Bool
   let compressionLevel: Int
