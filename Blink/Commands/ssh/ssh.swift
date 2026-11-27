@@ -174,7 +174,7 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
             return
           }
           self._mcp.setActiveSession()
-          Self.executeProxyCommand(command: $0, sockIn: $1, sockOut: $2, errFd: self.errstream)
+          Self.executeProxyCommand(command: $0, sockIn: $1, sockOut: $2, errFd: self.errstream, noteFile: self.device.stream.err)
         })
     }
     
@@ -284,7 +284,7 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
 
   // Redirect in and out to stdin, stdout, errFd will come from thread.
   // errFd should be quiet on -W after connection.
-  static func executeProxyCommand(command: String, sockIn: Int32, sockOut: Int32, errFd: Int32) {
+  static func executeProxyCommand(command: String, sockIn: Int32, sockOut: Int32, errFd: Int32, noteFile: UnsafeMutablePointer<FILE>? = nil) {
     ios_dup2(sockIn,  STDIN_FILENO)
     ios_dup2(sockOut, STDOUT_FILENO)
     ios_dup2(errFd,   STDERR_FILENO)
@@ -300,10 +300,15 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
     // instead of ios_system, and never fall back to a direct path.
     if TorCommand.isMagic(cmd) {
       if let tor = TorCommand.parse(cmd) {
-        TorPipe.run(host: tor.host, port: tor.port)
+        TorPipe.run(host: tor.host, port: tor.port, noteFile: noteFile)
       } else {
         let message = "blink-tor: invalid Tor ProxyCommand (expected 'tor %h %p')\r\n"
-        message.withCString { _ = write(STDERR_FILENO, $0, strlen($0)) }
+        if let noteFile = noteFile {
+          message.withCString { _ = fputs($0, noteFile) }
+          fflush(noteFile)
+        } else {
+          message.withCString { _ = write(STDERR_FILENO, $0, strlen($0)) }
+        }
         shutdown(STDIN_FILENO, SHUT_RDWR)
         shutdown(STDOUT_FILENO, SHUT_RDWR)
       }

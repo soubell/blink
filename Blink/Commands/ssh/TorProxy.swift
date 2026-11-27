@@ -309,6 +309,60 @@ final class TorService {
 }
 
 
+// MARK: - Phase heartbeat
+
+/// Prints the current connection phase with its elapsed time every
+/// 10 seconds, so a slow Tor bootstrap or circuit build is visibly
+/// "still working" instead of indistinguishable from a hang.
+private final class PhaseHeartbeat {
+  private let note: (String) -> Void
+  private let lock = NSLock()
+  private var phase = ""
+  private var phaseStart = Date()
+  private var stopped = false
+
+  init(note: @escaping (String) -> Void) {
+    self.note = note
+  }
+
+  func setPhase(_ phase: String) {
+    lock.lock()
+    self.phase = phase
+    phaseStart = Date()
+    lock.unlock()
+    note(phase)
+  }
+
+  func start() {
+    Thread.detachNewThread { [weak self] in
+      while true {
+        Thread.sleep(forTimeInterval: 10)
+        guard let self = self else {
+          return
+        }
+        self.lock.lock()
+        let stopped = self.stopped
+        let phase = self.phase
+        let elapsed = Int(Date().timeIntervalSince(self.phaseStart))
+        self.lock.unlock()
+        if stopped {
+          return
+        }
+        if !phase.isEmpty {
+          self.note("\(phase) — \(elapsed)s")
+        }
+      }
+    }
+  }
+
+  func stop() {
+    lock.lock()
+    stopped = true
+    lock.unlock()
+  }
+}
+
+
 // MARK: - Pipe between libssh and Tor's SOCKS port
 
 enum TorPipe {
@@ -316,16 +370,32 @@ enum TorPipe {
   /// has already dup2'ed the libssh sockets onto stdin/stdout and the
   /// terminal error stream onto stderr. Blocks until the connection
   /// closes, exactly like the external command it replaces.
-  static func run(host: String, port: Int) {
+  ///
+  /// Notes go to the terminal device's error stream when available:
+  /// the ios_system thread stderr behind the proxy callback is not
+  /// forwarded to the view while a connection is being established,
+  /// so progress written there never reaches the user (found in
+  /// on-device testing, 2026-11-27).
+  static func run(host: String, port: Int, noteFile: UnsafeMutablePointer<FILE>?) {
     func note(_ message: String) {
       let line = "blink-tor: \(message)\r\n"
-      line.withCString { _ = write(STDERR_FILENO, $0, strlen($0)) }
+      if let noteFile = noteFile {
+        line.withCString { _ = fputs($0, noteFile) }
+        fflush(noteFile)
+      } else {
+        line.withCString { _ = write(STDERR_FILENO, $0, strlen($0)) }
+      }
     }
     func abort() {
       shutdown(STDIN_FILENO, SHUT_RDWR)
       shutdown(STDOUT_FILENO, SHUT_RDWR)
     }
 
+    let heartbeat = PhaseHeartbeat(note: note)
+    heartbeat.start()
+    defer { heartbeat.stop() }
+
+    heartbeat.setPhase("Starting Tor")
     let endpoint: (host: String, port: Int)
     do {
       endpoint = try TorService.shared.socks(progress: { note($0) })
@@ -335,6 +405,7 @@ enum TorPipe {
       return
     }
 
+    heartbeat.setPhase("Building Tor circuit to \(host):\(port)")
     let remote = tcpConnect(host: endpoint.host, port: endpoint.port)
     guard remote >= 0 else {
       note("Could not connect to Tor's SOCKS port")
@@ -349,6 +420,7 @@ enum TorPipe {
       return
     }
 
+    heartbeat.stop()
     note("Connected to \(host):\(port) via Tor")
     pump(localIn: STDIN_FILENO, localOut: STDOUT_FILENO, remote: remote)
     close(remote)

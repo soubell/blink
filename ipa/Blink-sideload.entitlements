@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for builds signed by a team that does not own the capabilities
+  of the App Store build. This mirrors README "Build" step 3a: build without
+  iCloud, Push Notifications and Keychain sharing.
+
+  Use it as CODE_SIGN_ENTITLEMENTS for the Blink target, or pass it to
+  codesign when re-signing the unsigned IPA. See BUILD.md for the details and
+  for the list of entitlements that are intentionally missing here.
+
+  Keep this file valid XML: plist comments cannot contain a double hyphen.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.default-data-protection</key>
+	<string>NSFileProtectionComplete</string>
+	<key>com.apple.developer.user-fonts</key>
+	<array>
+		<string>app-usage</string>
+	</array>
+	<key>com.apple.developer.web-browser</key>
+	<true/>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.device.bluetooth</key>
+	<true/>
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
+</dict>
+</plist>
