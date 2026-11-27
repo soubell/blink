@@ -1,11 +1,11 @@
 # blink-tor v1 — サイドロード & 実機テスト手順
 
-用意済み (2026-11-27 12:26 JST 確認):
-- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `369c6869c5bc38587d5ec6775289fd3b97ac82db491502eb06a3bfe555f9e1f1`)
+用意済み (2026-11-27 12:44 JST 確認):
+- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `e8fcc276a8e1a4023181410c8e08f8278382a4625f9b790663ece8261d681196`)
   - 入手先: GitHub Release `unsigned-ipa` の資産 (生の IPA が直接落ちる。Actions artifact の zip 二重包みは廃止)
     https://github.com/soubell/blink/releases/download/unsigned-ipa/Blink-18.7.2-2065-unsigned.ipa
-  - 出所: soubell/blink `feat/tor-v1` run 45933198907 (commit `3a6706e`)
-  - この版の変更点: Tor 起動失敗の修正その3 (本命)。TorController は init 内で connect 済みなのに、接続済み状態で connect() を呼ぶとエラーなしで NO を返し、Swift 側で汎用エラーになっていた。実機3回目のテストでは Tor 自体は bootstrap 69% まで正常に進んでいたのに、こちらの接続ループだけが「失敗」していた。`isConnected` を見てから connect するよう修正 (Onion Browser と同じ)
+  - 出所: soubell/blink `feat/tor-v1` run 45935126678 (commit `ab4b5c4`)
+  - 状況: Tor bootstrap 100% → 回線確立 → SOCKS 接続まで実機で確認済み。ただしその後の SSH ハンドシェイクが進まずシェルが出ない (実機4回目)。この版は切り分け用の診断入り: `Connected ... via Tor` の後、ポンプの最初の送受信チャンク (SSH バナーが読める) と終了時のバイト数合計が `blink-tor: pump ...` として表示される
   - 検証済み: バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
 ## 1. サイドロード (署名は端末側で後付け)
 
