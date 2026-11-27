@@ -174,13 +174,14 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
       // SOCKS connect (seconds) sits inside the timed window.
       // Fail closed: if Tor cannot start, do not dial at all.
       var dialConfig = config
-      if TorCommand.isMagic(config.proxyCommand) {
+      if TorCommand.isMagic(host.proxyCommand) {
         dialConfig.connectionTimeout = 180
         print("blink-tor: Starting Tor", to: &stderr)
+        var errOut = stderr
         let torStart = Date()
         do {
           _ = try TorService.shared.socks(progress: { message in
-            print("blink-tor: \(message)", to: &stderr)
+            print("blink-tor: \(message)", to: &errOut)
           })
           let elapsed = Int(Date().timeIntervalSince(torStart).rounded())
           print("blink-tor: Tor ready (\(elapsed)s)", to: &stderr)
