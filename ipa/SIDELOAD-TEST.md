@@ -1,11 +1,11 @@
 # blink-tor v1 — サイドロード & 実機テスト手順
 
-用意済み (2026-11-27 11:33 JST 確認):
-- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `673fdba1e80e7a6cb1f94826bba33dd7816d257743b278abedbb70ed38c4c5ca`)
-  - 出所: soubell/blink `feat/tor-v1` run 45927931826 (commit `6e96ccc`) の artifact `Blink-unsigned-ipa`。成果物は IPA 単体のみ
-  - 中身は run 45926323665 (commit `a066d89`) と同一コード: 接続進捗が画面に出る版 (段階表示 + 10秒ごとの経過秒数つき)
+用意済み (2026-11-27 11:48 JST 確認):
+- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `be8a19d1b39aafbfafe17199c948e27b26c17dce6b11800cf0cc17272edf7ae5`)
+  - 出所: soubell/blink `feat/tor-v1` run 45929540911 (commit `7d8201f`) の artifact `Blink-unsigned-ipa`。成果物は IPA 単体のみ
+  - この版の変更点: Tor 起動失敗の修正。TorController が control.port ファイルを初期化時に1回だけ読むため、Tor がファイルを用意する前に作ると接続先が nil で固定され起動が必ず失敗していた (実機初回テストで発生)。ファイルを待ってから作るようにし、失敗時は Tor 自身のログ末尾がエラーに表示される
   - 検証済み: バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
-  - GitHub 上の artifact 期限: **2026-12-11 02:32 UTC まで**。過ぎたら Actions から再ダウンロードか再ビルドが必要 (ローカルコピーはこのフォルダに残る)
+  - GitHub 上の artifact 期限: **2026-12-11 02:48 UTC まで**。過ぎたら Actions から再ダウンロードか再ビルドが必要 (ローカルコピーはこのフォルダに残る)
 ## 1. サイドロード (署名は端末側で後付け)
 
 未署名のままでは入らない。Sideloadly / AltStore / SideStore / Xcode のいずれかで自分の証明書で再署名してインストールする
