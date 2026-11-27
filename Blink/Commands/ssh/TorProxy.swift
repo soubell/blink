@@ -200,6 +200,16 @@ final class TorService {
       "SafeLogging": "1",
     ]
 
+    // Remove stale files from a previous Tor instance, so the wait
+    // below only ever sees files written by THIS instance. A leftover
+    // control port file names a port nothing listens on anymore
+    // (connect() then fails with "Connection refused"), and a
+    // leftover cookie no longer authenticates.
+    if let controlPortFile = conf.controlPortFile {
+      try? fileManager.removeItem(at: controlPortFile)
+    }
+    try? fileManager.removeItem(at: dataDirectory.appendingPathComponent("control_auth_cookie"))
+
     let thread = TorThread(configuration: conf)
     thread.start()
     torConf = conf
@@ -241,7 +251,7 @@ final class TorService {
       }
     }
     if let connectError = connectError {
-      throw connectError
+      throw ServiceError.message("Could not connect to Tor's control port: \(connectError.localizedDescription) (\(torDiagnostics(conf: conf)))")
     }
     torController = controller
 

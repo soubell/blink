@@ -74,6 +74,8 @@ jobs:
     name: Build unsigned IPA (iOS device)
     runs-on: macos-26
     timeout-minutes: 120
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -282,14 +284,23 @@ jobs:
             echo "This IPA is **not signed** and cannot be installed on a device as-is."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload unsigned IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: Blink-unsigned-ipa
-          path: ${{ runner.temp }}/${{ steps.package.outputs.ipa }}
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
+      - name: Publish unsigned IPA as a release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # A release asset downloads as the raw file. An Actions
+          # artifact would wrap the IPA (itself a zip) in another
+          # zip, which is just annoying.
+          IPA_PATH="${{ runner.temp }}/${{ steps.package.outputs.ipa }}"
+          if ! gh release view unsigned-ipa > /dev/null 2>&1; then
+            gh release create unsigned-ipa --prerelease \
+              --title "Unsigned IPA (latest build)" \
+              --notes "Latest unsigned IPA build. Not signed; re-sign before installing."
+          fi
+          gh release upload unsigned-ipa "$IPA_PATH" --clobber
+          echo "Direct download: https://github.com/${{ github.repository }}/releases/download/unsigned-ipa/${{ steps.package.outputs.ipa }}" >> "$GITHUB_STEP_SUMMARY"
 
   test:
     name: Unit tests (iOS Simulator)
