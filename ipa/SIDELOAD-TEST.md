@@ -1,11 +1,11 @@
 # blink-tor v1 — サイドロード & 実機テスト手順
 
-用意済み (2026-11-27 13:37 JST 確認):
-- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `fb1d5b50bd67899379fca42d9e743d42356389c8eb69cacc79844a1db307625d`)
+用意済み (2026-11-27 13:54 JST 確認):
+- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `dbd1196990e504947caa23fae8f2dd0bde355d5b149acc78b1e21d15119f4e62`)
   - 入手先: GitHub Release `unsigned-ipa` の資産 (生の IPA が直接落ちる。Actions artifact の zip 二重包みは廃止)
     https://github.com/soubell/blink/releases/download/unsigned-ipa/Blink-18.7.2-2065-unsigned.ipa
-  - 出所: soubell/blink `feat/tor-v1` run 45940130881 (commit `6c3abc6`)
-  - 状況: ハンドシェイクが進まない真因が判明 (実機 -vvv ログで確定)。Blink の `ios_dup2` は fd 0/1/2 に対して本物の dup2 をせず ios_system の FILE* を差し替えるだけなので、ポンプが読んでいた fd 0 はパイプではなくアプリの標準入力 (/dev/null) で、read が即 EOF を返していた。この版の修正: ポンプが libssh から渡された生のパイプ fd を直接使う。Tor の事前起動 (ダイヤル前) と接続タイムアウト180秒も維持。ポンプ診断 (`blink-tor: pump ...`、バナーが読める) も引き続き入っている
+  - 出所: soubell/blink `feat/tor-v1` run 45941803628 (commit `a9724ae`)
+  - 状況: 前版でサーバのバナー (`SSH-2.0-OpenSSH_10.2p1 Ubuntu`) がポンプ経由で libssh まで届くようになったが、そこで停止。libssh はプロキシコールバックを ssh_connect の中から同期的に呼んでおり、コールバックが戻るまで握手を進めないため、コールバックのスレッドを占有するポンプとデッドロックしていた。この版の修正: ポンプを専用スレッドで動かし、コールバックは即座に戻る (mosh のプロキシコールバックと同じ形)。期待する流れ: バナー往復 → ホストキー確認 (出れば `y` か空Enter) → 認証 → シェル。ポンプ診断も引き続き入っている
   - 検証済み: バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
 ## 1. サイドロード (署名は端末側で後付け)
 
