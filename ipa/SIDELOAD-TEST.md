@@ -1,11 +1,11 @@
 # blink-tor v1 — サイドロード & 実機テスト手順
 
-用意済み (2026-11-27 12:44 JST 確認):
-- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `e8fcc276a8e1a4023181410c8e08f8278382a4625f9b790663ece8261d681196`)
+用意済み (2026-11-27 13:10 JST 確認):
+- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `75edd7c77de63d0e75aa1d7f7a43ba4ef7d5214ad105fffb530dc15be3fafe2f`)
   - 入手先: GitHub Release `unsigned-ipa` の資産 (生の IPA が直接落ちる。Actions artifact の zip 二重包みは廃止)
     https://github.com/soubell/blink/releases/download/unsigned-ipa/Blink-18.7.2-2065-unsigned.ipa
-  - 出所: soubell/blink `feat/tor-v1` run 45935126678 (commit `ab4b5c4`)
-  - 状況: Tor bootstrap 100% → 回線確立 → SOCKS 接続まで実機で確認済み。ただしその後の SSH ハンドシェイクが進まずシェルが出ない (実機4回目)。この版は切り分け用の診断入り: `Connected ... via Tor` の後、ポンプの最初の送受信チャンク (SSH バナーが読める) と終了時のバイト数合計が `blink-tor: pump ...` として表示される
+  - 出所: soubell/blink `feat/tor-v1` run 45937472036 (commit `23bd8a4`)
+  - 状況: ハンドシェイクが進まない原因は libssh の接続タイムアウト30秒と確定 (診断で「ポンプ開始前にセッションが破棄され、転送0バイト」を確認)。この版の修正: Tor をダイヤル前に起動する (コールバック内は SOCKS 接続のみ)、Tor ホストの接続タイムアウトを180秒に延長。`ssh aws` の直後、接続開始前に `blink-tor: Starting Tor` → bootstrap → `blink-tor: Tor ready (Xs)` と表示されるのが新しい流れ。ポンプ診断 (`blink-tor: pump ...`) も引き続き入っている
   - 検証済み: バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
 ## 1. サイドロード (署名は端末側で後付け)
 
