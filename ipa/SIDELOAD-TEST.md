@@ -1,11 +1,11 @@
 # blink-tor v1 — サイドロード & 実機テスト手順
 
-用意済み (2026-11-27 13:10 JST 確認):
-- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `75edd7c77de63d0e75aa1d7f7a43ba4ef7d5214ad105fffb530dc15be3fafe2f`)
+用意済み (2026-11-27 13:37 JST 確認):
+- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `fb1d5b50bd67899379fca42d9e743d42356389c8eb69cacc79844a1db307625d`)
   - 入手先: GitHub Release `unsigned-ipa` の資産 (生の IPA が直接落ちる。Actions artifact の zip 二重包みは廃止)
     https://github.com/soubell/blink/releases/download/unsigned-ipa/Blink-18.7.2-2065-unsigned.ipa
-  - 出所: soubell/blink `feat/tor-v1` run 45937472036 (commit `23bd8a4`)
-  - 状況: ハンドシェイクが進まない原因は libssh の接続タイムアウト30秒と確定 (診断で「ポンプ開始前にセッションが破棄され、転送0バイト」を確認)。この版の修正: Tor をダイヤル前に起動する (コールバック内は SOCKS 接続のみ)、Tor ホストの接続タイムアウトを180秒に延長。`ssh aws` の直後、接続開始前に `blink-tor: Starting Tor` → bootstrap → `blink-tor: Tor ready (Xs)` と表示されるのが新しい流れ。ポンプ診断 (`blink-tor: pump ...`) も引き続き入っている
+  - 出所: soubell/blink `feat/tor-v1` run 45940130881 (commit `6c3abc6`)
+  - 状況: ハンドシェイクが進まない真因が判明 (実機 -vvv ログで確定)。Blink の `ios_dup2` は fd 0/1/2 に対して本物の dup2 をせず ios_system の FILE* を差し替えるだけなので、ポンプが読んでいた fd 0 はパイプではなくアプリの標準入力 (/dev/null) で、read が即 EOF を返していた。この版の修正: ポンプが libssh から渡された生のパイプ fd を直接使う。Tor の事前起動 (ダイヤル前) と接続タイムアウト180秒も維持。ポンプ診断 (`blink-tor: pump ...`、バナーが読める) も引き続き入っている
   - 検証済み: バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
 ## 1. サイドロード (署名は端末側で後付け)
 
