@@ -239,8 +239,19 @@ final class TorService {
     }
     let controller = TorController(controlPortFile: controlPortFile)
 
+    // TorController already calls connect() inside init. Calling it
+    // again while connected returns NO *without* setting an error,
+    // which Swift bridges as a generic throw — so an unconditional
+    // connect() here fails precisely when everything is fine
+    // (third on-device failure: Tor was bootstrapping happily while
+    // this loop "failed"). Only connect when not yet connected,
+    // like Onion Browser does.
     var connectError: Error?
     for _ in 0..<40 {
+      if controller.isConnected {
+        connectError = nil
+        break
+      }
       do {
         try controller.connect()
         connectError = nil
@@ -250,7 +261,7 @@ final class TorService {
         Thread.sleep(forTimeInterval: 0.25)
       }
     }
-    if let connectError = connectError {
+    if !controller.isConnected, let connectError = connectError {
       throw ServiceError.message("Could not connect to Tor's control port: \(connectError.localizedDescription) (\(torDiagnostics(conf: conf)))")
     }
     torController = controller
