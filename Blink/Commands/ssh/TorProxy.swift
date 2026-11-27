@@ -480,7 +480,7 @@ enum TorPipe {
 
     heartbeat.stop()
     note("Connected to \(host):\(port) via Tor")
-    pump(localIn: STDIN_FILENO, localOut: STDOUT_FILENO, remote: remote)
+    pump(localIn: STDIN_FILENO, localOut: STDOUT_FILENO, remote: remote, note: note)
     close(remote)
   }
 
@@ -553,12 +553,26 @@ enum TorPipe {
     return readExact(fd, &rest)
   }
 
-  private static func pump(localIn: Int32, localOut: Int32, remote: Int32) {
+  private static func pump(localIn: Int32, localOut: Int32, remote: Int32, note: (String) -> Void) {
+    // Temporary transfer diagnostics: the first on-device test
+    // stalled right after the SOCKS connect, before the SSH
+    // handshake produced anything. Log the first chunks (the SSH
+    // banners are printable) and the byte totals when the pump ends.
+    func preview(_ buffer: [UInt8], _ count: Int) -> String {
+      let head = buffer[0..<min(count, 32)].map { byte -> Character in
+        (byte >= 0x20 && byte < 0x7f) ? Character(UnicodeScalar(byte)) : "."
+      }
+      return String(head)
+    }
+
     var buffer = [UInt8](repeating: 0, count: 32 * 1024)
     var fds = [
       pollfd(fd: localIn, events: Int16(POLLIN), revents: 0),
       pollfd(fd: remote, events: Int16(POLLIN), revents: 0),
     ]
+    var upBytes = 0
+    var downBytes = 0
+    var chunks = 0
 
     loop: while true {
       fds[0].revents = 0
@@ -567,6 +581,7 @@ enum TorPipe {
         if errno == EINTR {
           continue
         }
+        note("pump: poll failed (errno \(errno))")
         break
       }
 
@@ -574,12 +589,20 @@ enum TorPipe {
       if localEvents & Int16(POLLIN) != 0 {
         let count = read(localIn, &buffer, buffer.count)
         if count <= 0 {
+          note("pump: local read returned \(count) (errno \(errno))")
           break
         }
         if !writeAll(remote, Array(buffer[0..<count])) {
+          note("pump: write to server failed (errno \(errno))")
           break
         }
+        upBytes += count
+        chunks += 1
+        if chunks <= 12 {
+          note("pump > server: \(count) bytes '\(preview(buffer, count))'")
+        }
       } else if localEvents & Int16(POLLHUP | POLLERR | POLLNVAL) != 0 {
+        note("pump: local hangup (revents \(localEvents))")
         break
       }
 
@@ -587,16 +610,25 @@ enum TorPipe {
       if remoteEvents & Int16(POLLIN) != 0 {
         let count = read(remote, &buffer, buffer.count)
         if count <= 0 {
+          note("pump: server read returned \(count) (errno \(errno))")
           break
         }
         if !writeAll(localOut, Array(buffer[0..<count])) {
+          note("pump: write to libssh failed (errno \(errno))")
           break
         }
+        downBytes += count
+        chunks += 1
+        if chunks <= 12 {
+          note("pump < server: \(count) bytes '\(preview(buffer, count))'")
+        }
       } else if remoteEvents & Int16(POLLHUP | POLLERR | POLLNVAL) != 0 {
+        note("pump: server hangup (revents \(remoteEvents))")
         break
       }
     }
 
+    note("pump ended (up \(upBytes) bytes, down \(downBytes) bytes)")
     shutdown(remote, SHUT_RDWR)
     shutdown(localIn, SHUT_RDWR)
     shutdown(localOut, SHUT_RDWR)
