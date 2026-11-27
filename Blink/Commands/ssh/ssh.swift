@@ -327,7 +327,9 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
     // instead of ios_system, and never fall back to a direct path.
     if TorCommand.isMagic(cmd) {
       if let tor = TorCommand.parse(cmd) {
-        TorPipe.run(host: tor.host, port: tor.port, noteFile: noteFile)
+        // Pass libssh's raw pipe fds: ios_dup2 above only remapped
+        // ios_system's FILE* streams, fds 0/1 are not the pipes.
+        TorPipe.run(host: tor.host, port: tor.port, inFd: sockIn, outFd: sockOut, noteFile: noteFile)
       } else {
         let message = "blink-tor: invalid Tor ProxyCommand (expected 'tor %h %p')\r\n"
         if let noteFile = noteFile {
@@ -336,8 +338,8 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
         } else {
           message.withCString { _ = write(STDERR_FILENO, $0, strlen($0)) }
         }
-        shutdown(STDIN_FILENO, SHUT_RDWR)
-        shutdown(STDOUT_FILENO, SHUT_RDWR)
+        shutdown(sockIn, SHUT_RDWR)
+        shutdown(sockOut, SHUT_RDWR)
       }
       return
     }

@@ -434,7 +434,16 @@ enum TorPipe {
   /// forwarded to the view while a connection is being established,
   /// so progress written there never reaches the user (found in
   /// on-device testing, 2026-11-27).
-  static func run(host: String, port: Int, noteFile: UnsafeMutablePointer<FILE>?) {
+  /// - Parameters:
+  ///   - inFd: libssh's proxy pipe to read client->server data from.
+  ///   - outFd: libssh's proxy pipe to write server->client data to.
+  /// These must be the raw fds from libssh's callback. Do NOT use
+  /// STDIN_FILENO/STDOUT_FILENO here: Blink's ios_dup2() only
+  /// remaps ios_system's per-thread FILE* streams and leaves the
+  /// process fds 0/1 untouched (fd 0 is /dev/null in the app, so
+  /// reads return EOF instantly). Stock proxy commands work
+  /// because ios_system hands them the FILE* streams, not raw fds.
+  static func run(host: String, port: Int, inFd: Int32, outFd: Int32, noteFile: UnsafeMutablePointer<FILE>?) {
     func note(_ message: String) {
       let line = "blink-tor: \(message)\r\n"
       if let noteFile = noteFile {
@@ -445,8 +454,8 @@ enum TorPipe {
       }
     }
     func abort() {
-      shutdown(STDIN_FILENO, SHUT_RDWR)
-      shutdown(STDOUT_FILENO, SHUT_RDWR)
+      shutdown(inFd, SHUT_RDWR)
+      shutdown(outFd, SHUT_RDWR)
     }
 
     let heartbeat = PhaseHeartbeat(note: note)
@@ -480,7 +489,7 @@ enum TorPipe {
 
     heartbeat.stop()
     note("Connected to \(host):\(port) via Tor")
-    pump(localIn: STDIN_FILENO, localOut: STDOUT_FILENO, remote: remote, note: note)
+    pump(localIn: inFd, localOut: outFd, remote: remote, note: note)
     close(remote)
   }
 
