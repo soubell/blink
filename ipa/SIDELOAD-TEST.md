@@ -1,11 +1,12 @@
 # blink-tor v1 — サイドロード & 実機テスト手順
 
-用意済み (2026-11-27 11:48 JST 確認):
-- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `be8a19d1b39aafbfafe17199c948e27b26c17dce6b11800cf0cc17272edf7ae5`)
-  - 出所: soubell/blink `feat/tor-v1` run 45929540911 (commit `7d8201f`) の artifact `Blink-unsigned-ipa`。成果物は IPA 単体のみ
-  - この版の変更点: Tor 起動失敗の修正。TorController が control.port ファイルを初期化時に1回だけ読むため、Tor がファイルを用意する前に作ると接続先が nil で固定され起動が必ず失敗していた (実機初回テストで発生)。ファイルを待ってから作るようにし、失敗時は Tor 自身のログ末尾がエラーに表示される
+用意済み (2026-11-27 12:09 JST 確認):
+- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `23558b45566a113e2546cfbfcadac104d9f7aa8a608caa81873f6d20dc161e66`)
+  - 入手先: GitHub Release `unsigned-ipa` の資産 (生の IPA が直接落ちる。Actions artifact の zip 二重包みは廃止)
+    https://github.com/soubell/blink/releases/download/unsigned-ipa/Blink-18.7.2-2065-unsigned.ipa
+  - 出所: soubell/blink `feat/tor-v1` run 45931450446 (commit `1346780`)
+  - この版の変更点: Tor 起動失敗の修正その2。前回実行時の controlport / cookie ファイルが残っていると、もう listen していないポートへ接続し続けて "Connection refused" になっていた (実機2回目のテストで発生)。Tor 起動前に古いファイルを削除するようにした。あわせて control ポート接続失敗時にも Tor のログ末尾がエラーに表示される
   - 検証済み: バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
-  - GitHub 上の artifact 期限: **2026-12-11 02:48 UTC まで**。過ぎたら Actions から再ダウンロードか再ビルドが必要 (ローカルコピーはこのフォルダに残る)
 ## 1. サイドロード (署名は端末側で後付け)
 
 未署名のままでは入らない。Sideloadly / AltStore / SideStore / Xcode のいずれかで自分の証明書で再署名してインストールする
