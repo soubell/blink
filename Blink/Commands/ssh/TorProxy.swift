@@ -434,6 +434,19 @@ enum TorPipe {
   /// forwarded to the view while a connection is being established,
   /// so progress written there never reaches the user (found in
   /// on-device testing, 2026-11-27).
+  /// Starts run() on a detached thread and returns immediately.
+  /// libssh invokes the proxy callback synchronously from inside
+  /// ssh_connect and only proceeds with the handshake after the
+  /// callback returns, so blocking the callback thread in the pump
+  /// deadlocks the banner exchange (mosh's proxy callback spawns a
+  /// thread for the same reason). The pump thread ends on its own
+  /// when either side of the connection closes.
+  static func runAsync(host: String, port: Int, inFd: Int32, outFd: Int32, noteFile: UnsafeMutablePointer<FILE>?) {
+    Thread {
+      run(host: host, port: port, inFd: inFd, outFd: outFd, noteFile: noteFile)
+    }.start()
+  }
+
   /// - Parameters:
   ///   - inFd: libssh's proxy pipe to read client->server data from.
   ///   - outFd: libssh's proxy pipe to write server->client data to.

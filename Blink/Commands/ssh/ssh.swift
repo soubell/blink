@@ -329,7 +329,10 @@ public func blink_ssh_main(argc: Int32, argv: Argv) -> Int32 {
       if let tor = TorCommand.parse(cmd) {
         // Pass libssh's raw pipe fds: ios_dup2 above only remapped
         // ios_system's FILE* streams, fds 0/1 are not the pipes.
-        TorPipe.run(host: tor.host, port: tor.port, inFd: sockIn, outFd: sockOut, noteFile: noteFile)
+        // The pump runs on its own thread: libssh calls this
+        // callback synchronously from ssh_connect and the handshake
+        // only proceeds once the callback returns.
+        TorPipe.runAsync(host: tor.host, port: tor.port, inFd: sockIn, outFd: sockOut, noteFile: noteFile)
       } else {
         let message = "blink-tor: invalid Tor ProxyCommand (expected 'tor %h %p')\r\n"
         if let noteFile = noteFile {
