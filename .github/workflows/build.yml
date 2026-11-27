@@ -252,12 +252,6 @@ jobs:
             ditto -c -k --sequesterRsrc --keepParent Payload "$IPA_NAME"
           )
 
-          ENTITLEMENTS_NAME=""
-          if [ "$ENTITLEMENTS" != "default" ]; then
-            ENTITLEMENTS_NAME="Blink-sideload.entitlements"
-            cp Blink/Blink-sideload.entitlements "$RUNNER_TEMP/$ENTITLEMENTS_NAME"
-          fi
-
           IPA_SIZE=$(du -h "$RUNNER_TEMP/$IPA_NAME" | cut -f1)
           echo "Built $IPA_NAME ($IPA_SIZE)"
 
@@ -292,9 +286,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Blink-unsigned-ipa
-          path: |
-            ${{ runner.temp }}/${{ steps.package.outputs.ipa }}
-            ${{ runner.temp }}/*.entitlements
+          path: ${{ runner.temp }}/${{ steps.package.outputs.ipa }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

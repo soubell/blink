@@ -6,12 +6,11 @@
   - この版の変更点: 接続進捗が画面に出るようになった (初版は進捗を接続中に表示されない stderr に書いていて出なかった)。段階表示 + 10秒ごとの経過秒数つき
   - 検証済み: zip 正常 (3007 files)、バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
   - GitHub 上の artifact 期限: **2026-12-11 02:17 UTC まで**。過ぎたら Actions から再ダウンロードか再ビルドが必要 (ローカルコピーはこのフォルダに残る)
-- `Blink-sideload.entitlements` — 再署名時に使う sideload 用 entitlements (iCloud / Push / Keychain sharing / App Group を落とした版)
-
 ## 1. サイドロード (署名は端末側で後付け)
 
 未署名のままでは入らない。Sideloadly / AltStore / SideStore / Xcode のいずれかで自分の証明書で再署名してインストールする
-(BUILD.md 「GitHub Actions: unsigned IPA」節の通り。`codesign` でやる場合は `--entitlements Blink-sideload.entitlements` を付ける)。
+(BUILD.md 「GitHub Actions: unsigned IPA」節の通り)。成果物は IPA 単体のみ。
+sideload 用 entitlements はビルド時に適用済みで、ファイル自体はリポジトリの `Blink/Blink-sideload.entitlements` にある (手動 `codesign --entitlements` する場合のみ必要)。
 
 注意: 無料/個人チームだと App Group (`group.sh.blink`) が付かず、Blink はアプリ内コンテナ
 (`Library/Application Support/Blink`) にフォールバックして起動する。File Provider など拡張との共有はその場合は使えない。
