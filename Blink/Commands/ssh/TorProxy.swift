@@ -194,7 +194,9 @@ final class TorService {
     conf.options = [
       "SocksPort": "auto",
       "UseBridges": "0",
-      "Log": "err file /dev/null",
+      // Keep Tor's log in the data directory so a failed start can
+      // report Tor's own words instead of an opaque framework error.
+      "Log": "notice file \(dataDirectory.path)/tor.log",
       "SafeLogging": "1",
     ]
 
@@ -203,11 +205,27 @@ final class TorService {
     torConf = conf
     torThread = thread
 
-    // Give Tor a moment to write its control port file.
-    Thread.sleep(forTimeInterval: 0.65)
-
     guard let controlPortFile = conf.controlPortFile else {
       throw ServiceError.message("Tor did not provide a control port file")
+    }
+
+    // TorController reads the control port file exactly once, at
+    // init. If Tor hasn't written it yet, the controller ends up
+    // with a nil endpoint and connect() can never succeed, no matter
+    // how often it is retried (this was the first on-device failure:
+    // a fixed 0.65 s sleep was not enough on a cold start). Wait
+    // until the file is actually there before creating it.
+    let portDeadline = Date().addingTimeInterval(15)
+    var portFileReady = false
+    while Date() < portDeadline {
+      if let data = try? Data(contentsOf: controlPortFile), data.count > 3 {
+        portFileReady = true
+        break
+      }
+      Thread.sleep(forTimeInterval: 0.25)
+    }
+    guard portFileReady else {
+      throw ServiceError.message("Tor did not start (\(torDiagnostics(conf: conf)))")
     }
     let controller = TorController(controlPortFile: controlPortFile)
 
@@ -305,6 +323,25 @@ final class TorService {
     torThread?.cancel()
     torThread = nil
     torConf = nil
+  }
+
+  /// State of Tor's files plus the tail of Tor's own log, so a
+  /// failed start can say what Tor itself reported.
+  private func torDiagnostics(conf: TorConfiguration) -> String {
+    var parts: [String] = []
+    let fileManager = FileManager.default
+    if let controlPortFile = conf.controlPortFile {
+      parts.append("control.port \(fileManager.fileExists(atPath: controlPortFile.path) ? "exists" : "missing")")
+    }
+    parts.append("cookie \(conf.cookie != nil ? "readable" : "missing")")
+    if let dataDirectory = conf.dataDirectory,
+       let logText = try? String(contentsOf: dataDirectory.appendingPathComponent("tor.log"), encoding: .utf8) {
+      let tail = logText.split(separator: "\n").suffix(8).joined(separator: " | ")
+      if !tail.isEmpty {
+        parts.append("tor log: \(tail)")
+      }
+    }
+    return parts.joined(separator: "; ")
   }
 }
 
