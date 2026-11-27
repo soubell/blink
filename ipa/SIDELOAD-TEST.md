@@ -1,11 +1,11 @@
 # blink-tor v1 — サイドロード & 実機テスト手順
 
-用意済み (2026-11-27 11:18 JST 確認):
-- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `aff80d4bc25ecf2cf62c8d8717dcd9e23c13c48c0179979d09510d34b1ec190e`)
-  - 出所: soubell/blink `feat/tor-v1` run 45926323665 (commit `a066d89`) の artifact `Blink-unsigned-ipa`
-  - この版の変更点: 接続進捗が画面に出るようになった (初版は進捗を接続中に表示されない stderr に書いていて出なかった)。段階表示 + 10秒ごとの経過秒数つき
-  - 検証済み: zip 正常 (3007 files)、バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
-  - GitHub 上の artifact 期限: **2026-12-11 02:17 UTC まで**。過ぎたら Actions から再ダウンロードか再ビルドが必要 (ローカルコピーはこのフォルダに残る)
+用意済み (2026-11-27 11:33 JST 確認):
+- `Blink-18.7.2-2065-unsigned.ipa` (61 MB, SHA-256 `673fdba1e80e7a6cb1f94826bba33dd7816d257743b278abedbb70ed38c4c5ca`)
+  - 出所: soubell/blink `feat/tor-v1` run 45927931826 (commit `6e96ccc`) の artifact `Blink-unsigned-ipa`。成果物は IPA 単体のみ
+  - 中身は run 45926323665 (commit `a066d89`) と同一コード: 接続進捗が画面に出る版 (段階表示 + 10秒ごとの経過秒数つき)
+  - 検証済み: バイナリ内に `TorProxy` / `TorService` / `TorCommand.isMagic` / `PhaseHeartbeat` のシンボルと Tor 本体の文字列あり (Tor は静的リンクのため Frameworks/ に単独バンドルはない)
+  - GitHub 上の artifact 期限: **2026-12-11 02:32 UTC まで**。過ぎたら Actions から再ダウンロードか再ビルドが必要 (ローカルコピーはこのフォルダに残る)
 ## 1. サイドロード (署名は端末側で後付け)
 
 未署名のままでは入らない。Sideloadly / AltStore / SideStore / Xcode のいずれかで自分の証明書で再署名してインストールする
